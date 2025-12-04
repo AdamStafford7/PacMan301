@@ -6,8 +6,23 @@ import game.entities.ghosts.Ghost;
 import game.utils.Utils;
 import java.util.*;
 
+/*
+ * CITATION:
+ * Logic implemented based on the paper:
+ * "EXPLORING THE POSSIBILITIES OF MADDPG FOR UAV SWARM CONTROL BY SIMULATING IN PAC-MAN ENVIRONMENT"
+ * Authors: Artem Novikov, Sergiy Yakovlev, Ivan Gushchin
+ * Published in: Radioelectronic and Computer Systems, 2025, no. 1(113)
+ * DOI: 10.32620/reks.2025.1.21
+ * Algorithm: A* Search
+ */
 public class PinkyStrategy implements IGhostStrategy {
     private Ghost me;
+    
+    // Static map to prevent lag
+    private static boolean[][] staticGrid = null;
+    private static final int CELL_SIZE = 8;
+    private static final int COLS = 56; 
+    private static final int ROWS = 62; 
 
     public PinkyStrategy(Ghost me) {
         this.me = me;
@@ -15,15 +30,13 @@ public class PinkyStrategy implements IGhostStrategy {
 
     @Override
     public int[] getChaseTargetPosition() {
-        // 1. Calculate the target (2 tiles/32px in front of Pacman)
         int[] target = Utils.getPointDistanceDirection(
                 Game.getPacman().getxPos(), 
                 Game.getPacman().getyPos(), 
-                32, // 32 pixels ahead
+                32, 
                 Utils.directionConverter(Game.getPacman().getDirection())
         );
 
-        // 2. Use A* (Self-contained) to find the path
         if (me.onTheGrid()) {
             return solveAStar(me.getxPos(), me.getyPos(), target[0], target[1]);
         }
@@ -32,21 +45,17 @@ public class PinkyStrategy implements IGhostStrategy {
 
     @Override
     public int[] getScatterTargetPosition() {
-        return new int[]{0, 0}; // Top Left
+        return new int[]{0, 0};
     }
 
-    // --- A* ALGORITHM IMPLEMENTATION (HIDDEN INSIDE) ---
     private int[] solveAStar(int startX, int startY, int targetX, int targetY) {
-        int CELL_SIZE = 8;
-        int COLS = 56; // 448/8
-        int ROWS = 62; // 496/8
-        
-        // Build simple grid of walls
-        boolean[][] walls = new boolean[COLS][ROWS];
-        for (Wall w : Game.getWalls()) {
-            int gx = w.getxPos() / CELL_SIZE;
-            int gy = w.getyPos() / CELL_SIZE;
-            if (gx >= 0 && gx < COLS && gy >= 0 && gy < ROWS) walls[gx][gy] = true;
+        if (staticGrid == null) {
+            staticGrid = new boolean[COLS][ROWS];
+            for (Wall w : Game.getWalls()) {
+                int gx = w.getxPos() / CELL_SIZE;
+                int gy = w.getyPos() / CELL_SIZE;
+                if (gx >= 0 && gx < COLS && gy >= 0 && gy < ROWS) staticGrid[gx][gy] = true;
+            }
         }
 
         int sX = startX / CELL_SIZE;
@@ -54,16 +63,23 @@ public class PinkyStrategy implements IGhostStrategy {
         int tX = Math.max(0, Math.min(COLS - 1, targetX / CELL_SIZE));
         int tY = Math.max(0, Math.min(ROWS - 1, targetY / CELL_SIZE));
 
-        if (sX == tX && sY == tY) return new int[]{targetX, targetY};
+        // ANTI-FREEZE 1: If target is a wall, don't try to pathfind to it. 
+        if (staticGrid[tX][tY]) return new int[]{targetX, targetY};
 
         PriorityQueue<Node> open = new PriorityQueue<>();
         Set<String> closed = new HashSet<>();
         open.add(new Node(sX, sY, null, 0, Math.abs(sX - tX) + Math.abs(sY - tY)));
 
+        // ANTI-FREEZE 2: Safety counter
+        int loops = 0;
+
         while (!open.isEmpty()) {
+            loops++;
+            // If we've searched 1000 nodes and haven't found it, just give up to save FPS
+            if (loops > 1000) return new int[]{targetX, targetY};
+
             Node current = open.poll();
             if (current.x == tX && current.y == tY) {
-                // Backtrack to find the FIRST step
                 while (current.parent != null && (current.parent.x != sX || current.parent.y != sY)) {
                     current = current.parent;
                 }
@@ -75,7 +91,7 @@ public class PinkyStrategy implements IGhostStrategy {
             int[][] dirs = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
             for (int[] d : dirs) {
                 int nx = current.x + d[0], ny = current.y + d[1];
-                if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && !walls[nx][ny] && !closed.contains(nx + "," + ny)) {
+                if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && !staticGrid[nx][ny] && !closed.contains(nx + "," + ny)) {
                     double g = current.g + 1;
                     double h = Math.abs(nx - tX) + Math.abs(ny - tY);
                     open.add(new Node(nx, ny, current, g, h));
@@ -85,7 +101,6 @@ public class PinkyStrategy implements IGhostStrategy {
         return new int[]{targetX, targetY};
     }
 
-    // Tiny Helper Class for A*
     private class Node implements Comparable<Node> {
         int x, y;
         Node parent;
