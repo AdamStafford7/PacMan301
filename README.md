@@ -3,7 +3,7 @@
 **Authors:** Adam Stafford & Barnabas Fluck
 
 ## Overview
-This project implements advanced pathfinding algorithms to control Ghost AI in a Java-based Pac-Man engine. We explore how rule-based navigation strategies—specifically those used as benchmarks in UAV swarm control research—can be applied to game agents to create complex, coordinated adversarial behaviors.
+This project implements advanced pathfinding algorithms to control Ghost AI in a Java-based Pac-Man engine. We explore how rule-based navigation strategies, specifically those used as benchmarks in UAV swarm control research, can be applied to game agents to create complex, coordinated adversarial behaviors.
 
 ## How to Run
 To play the game and observe the algorithms in action:
