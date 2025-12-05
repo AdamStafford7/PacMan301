@@ -5,16 +5,6 @@ import game.entities.Wall;
 import game.entities.ghosts.Ghost;
 import game.utils.Utils;
 import java.util.*;
-
-/*
- * CITATION:
- * Logic implemented based on the paper:
- * "EXPLORING THE POSSIBILITIES OF MADDPG FOR UAV SWARM CONTROL BY SIMULATING IN PAC-MAN ENVIRONMENT"
- * Authors: Artem Novikov, Sergiy Yakovlev, Ivan Gushchin
- * Published in: Radioelectronic and Computer Systems, 2025, no. 1(113)
- * DOI: 10.32620/reks.2025.1.21
- * Algorithm: A* Search
- */
 public class PinkyStrategy implements IGhostStrategy {
     private Ghost me;
     
@@ -27,7 +17,7 @@ public class PinkyStrategy implements IGhostStrategy {
     public PinkyStrategy(Ghost me) {
         this.me = me;
     }
-
+    //calculate target position for chase mode
     @Override
     public int[] getChaseTargetPosition() {
         int[] target = Utils.getPointDistanceDirection(
@@ -36,18 +26,18 @@ public class PinkyStrategy implements IGhostStrategy {
                 32, 
                 Utils.directionConverter(Game.getPacman().getDirection())
         );
-
+        // If on grid, use A* to find path
         if (me.onTheGrid()) {
             return solveAStar(me.getxPos(), me.getyPos(), target[0], target[1]);
         }
         return target;
     }
-
+    //calculate target position for scatter mode
     @Override
     public int[] getScatterTargetPosition() {
         return new int[]{0, 0};
     }
-
+    //A* pathfinding algorithm
     private int[] solveAStar(int startX, int startY, int targetX, int targetY) {
         if (staticGrid == null) {
             staticGrid = new boolean[COLS][ROWS];
@@ -57,7 +47,7 @@ public class PinkyStrategy implements IGhostStrategy {
                 if (gx >= 0 && gx < COLS && gy >= 0 && gy < ROWS) staticGrid[gx][gy] = true;
             }
         }
-
+        // Convert to grid coordinates
         int sX = startX / CELL_SIZE;
         int sY = startY / CELL_SIZE;
         int tX = Math.max(0, Math.min(COLS - 1, targetX / CELL_SIZE));
@@ -72,7 +62,7 @@ public class PinkyStrategy implements IGhostStrategy {
 
         // ANTI-FREEZE 2: Safety counter
         int loops = 0;
-
+        // A* Loop
         while (!open.isEmpty()) {
             loops++;
             // If we've searched 1000 nodes and haven't found it, just give up to save FPS
@@ -85,10 +75,11 @@ public class PinkyStrategy implements IGhostStrategy {
                 }
                 return new int[]{current.x * CELL_SIZE, current.y * CELL_SIZE};
             }
-
+            // Explore neighbors
             closed.add(current.x + "," + current.y);
-
+            
             int[][] dirs = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
+            // For each direction
             for (int[] d : dirs) {
                 int nx = current.x + d[0], ny = current.y + d[1];
                 if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && !staticGrid[nx][ny] && !closed.contains(nx + "," + ny)) {
@@ -98,6 +89,7 @@ public class PinkyStrategy implements IGhostStrategy {
                 }
             }
         }
+        // If we exit the loop without finding a path, return the raw target
         return new int[]{targetX, targetY};
     }
 
