@@ -1,3 +1,21 @@
+/*
+ * -----------------------------------------------------------------------------------
+ * PROJECT: Pac-Man Program 3
+ * AUTHORS: Adam Stafford, Barnabas Fluck
+ * DATE: 5 December 2025
+ * PURPOSE: Implementation of Pac-Man game with ghosts using various strategies based on research paper exploring MADDPG for UAV swarm control.
+ * -----------------------------------------------------------------------------------
+ * CITATION:
+ * Logic implemented based on the paper:
+ * "EXPLORING THE POSSIBILITIES OF MADDPG FOR UAV SWARM CONTROL BY SIMULATING IN PAC-MAN ENVIRONMENT"
+ * Authors: Artem Novikov, Sergiy Yakovlev, Ivan Gushchin
+ * Published in: Radioelectronic and Computer Systems, 2025, no. 1(113)
+ * DOI: 10.32620/reks.2025.1.21
+ * * Implemented Algorithms:
+ * - [cite_start]Pinky: A* Search [cite: 12, 133]
+ * - [cite_start]Inky: Hybrid Strategy (BFS + Vector) [cite: 13]
+ * -----------------------------------------------------------------------------------
+ */
 package game;
 
 import game.entities.*;
@@ -32,16 +50,13 @@ public class Game implements Observer {
         //Chargement du fichier csv du niveau
         List<List<String>> data = null;
         try {
-            // FIX APPLIED HERE: Used getClass().getResource with a leading slash
-            // No "/" and no "level/" folder. Just the filename.
             data = new CsvReader().parseCsv(getClass().getResource("level.csv").toURI());
         } catch (URISyntaxException e) {
             e.printStackTrace();
         }
         
-        // Safety check to prevent crash if data is still null
         if (data == null) {
-            System.err.println("ERROR: Could not load level data. Check if 'level.csv' is inside src/java/level/");
+            System.err.println("ERROR: Could not load level data.");
             return;
         }
 
@@ -139,27 +154,46 @@ public class Game implements Observer {
         return blinky;
     }
 
+    // --- NEW METHOD: Check if any pellets are left ---
+    private void checkWinCondition() {
+        boolean pelletsRemaining = false;
+        for (Entity e : objects) {
+            // Check if object is a Gum or SuperGum AND is NOT destroyed
+            if ((e instanceof PacGum || e instanceof SuperPacGum) && !e.isDestroyed()) {
+                pelletsRemaining = true;
+                break;
+            }
+        }
+
+        if (!pelletsRemaining) {
+            System.out.println("Game Over thanks for playing");
+            System.exit(0);
+        }
+    }
+
     //Le jeu est notifiée lorsque Pacman est en contact avec une PacGum, une SuperPacGum ou un fantôme
     @Override
     public void updatePacGumEaten(PacGum pg) {
         pg.destroy(); //La PacGum est détruite quand Pacman la mange
+        checkWinCondition(); // Check for win
     }
 
     @Override
     public void updateSuperPacGumEaten(SuperPacGum spg) {
         spg.destroy(); //La SuperPacGum est détruite quand Pacman la mange
         for (Ghost gh : ghosts) {
-            gh.getState().superPacGumEaten(); //S'il existe une transition particulière quand une SuperPacGum est mangée, l'état des fantômes change
+            gh.getState().superPacGumEaten(); 
         }
+        checkWinCondition(); // Check for win
     }
 
     @Override
     public void updateGhostCollision(Ghost gh) {
         if (gh.getState() instanceof FrightenedMode) {
-            gh.getState().eaten(); //S'il existe une transition particulière quand le fantôme est mangé, son état change en conséquence
+            gh.getState().eaten(); 
         }else if (!(gh.getState() instanceof EatenMode)) {
-            System.out.println("Game over !\nScore : " + GameLauncher.getUIPanel().getScore()); //Quand Pacman rentre en contact avec un Fantôme qui n'est ni effrayé, ni mangé, c'est game over !
-            System.exit(0); //TODO
+            System.out.println("Game over !\nScore : " + GameLauncher.getUIPanel().getScore()); 
+            System.exit(0); 
         }
     }
 
