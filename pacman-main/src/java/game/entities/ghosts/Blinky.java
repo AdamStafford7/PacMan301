@@ -6,6 +6,7 @@ import game.ghostStrategies.BlinkyStrategy;
 public class Blinky extends Ghost {
     public Blinky(int xPos, int yPos) {
         super(xPos, yPos, "blinky.png");
-        setStrategy(new BlinkyStrategy());
+        // FIX: Pass 'this' so the strategy knows who is moving
+        setStrategy(new BlinkyStrategy(this));
     }
 }
